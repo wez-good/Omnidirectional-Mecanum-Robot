@@ -1,0 +1,118 @@
+/*
+ * FINAL MECANUM CONTROL - GITHUB VERSION
+ * Hardware: Arduino Uno R3, 2x L298N Drivers, RC Receiver 4x DC motor
+ */
+
+// --- PIN DEFINITIONS ---
+#define MOTOR1_PWM 5    // FL
+#define MOTOR1_IN1 4
+#define MOTOR1_IN2 7    
+
+#define MOTOR2_PWM 6    // FR
+#define MOTOR2_IN3 8
+#define MOTOR2_IN4 A0   
+
+#define MOTOR3_PWM 9    // BL
+#define MOTOR3_IN1 A1
+#define MOTOR3_IN2 A3
+
+#define MOTOR4_PWM 10   // BR
+#define MOTOR4_IN3 A4
+#define MOTOR4_IN4 A5
+
+#define RC_CH1 2        // Strafe
+#define RC_CH2 3        // Forward
+#define RC_CH4 11       // Rotation
+
+// --- TUNING PARAMETERS ---
+#define RC_MIN 1000
+#define RC_MAX 2000
+#define MOTOR_MAX_LIMIT 200  // Speed cap (0-255)
+#define MIN_KICK 45          // Min power to overcome friction
+#define MOTOR_DEADZONE 35    // Stick wiggle room
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Set all motor pins as outputs
+  int pins[] = {4,5,6,7,8,9,10,A0,A1,A3,A4,A5};
+  for(int i=0; i<12; i++) pinMode(pins[i], OUTPUT);
+
+  pinMode(RC_CH1, INPUT);
+  pinMode(RC_CH2, INPUT);
+  pinMode(RC_CH4, INPUT);
+
+  Serial.println(F("Mecanum System Initialized"));
+}
+
+void loop() {
+  // 1. Read RC Signals
+  unsigned long rawCH1 = pulseIn(RC_CH1, HIGH, 30000);
+  unsigned long rawCH2 = pulseIn(RC_CH2, HIGH, 30000);
+  unsigned long rawCH4 = pulseIn(RC_CH4, HIGH, 30000);
+
+  // 2. Failsafe: Stop if signal is lost
+  if (rawCH1 < 800 || rawCH2 < 800) {
+    stopAllMotors();
+    return; 
+  }
+
+  // 3. Map signals to speed range (-255 to 255)
+  int x = map(rawCH1, RC_MIN, RC_MAX, -255, 255);
+  int y = map(rawCH2, RC_MIN, RC_MAX, -255, 255);
+  int r = map(rawCH4, RC_MIN, RC_MAX, -255, 255);
+
+  // 4. Apply Deadzone
+  if (abs(x) < MOTOR_DEADZONE) x = 0;
+  if (abs(y) < MOTOR_DEADZONE) y = 0;
+  if (abs(r) < MOTOR_DEADZONE) r = 0;
+
+  // 5. Kinematics Matrix
+  int m1 = y + x + r; // Front Left
+  int m2 = y - x - r; // Front Right
+  int m3 = y - x + r; // Back Left
+  int m4 = y + x - r; // Back Right
+
+  // 6. Execute movement
+  drive(1, m1); 
+  drive(2, m2); 
+  drive(3, m3); 
+  drive(4, m4);
+
+  delay(10); 
+}
+
+void drive(int motor, int speed) {
+  // Scale speed to user limit
+  float scale = (float)MOTOR_MAX_LIMIT / 255.0;
+  int pwm = abs(speed * scale);
+  
+  // Apply Min Kick to prevent motor stalling/humming
+  if (pwm > 0 && pwm < MIN_KICK) pwm = MIN_KICK;
+  pwm = constrain(pwm, 0, MOTOR_MAX_LIMIT);
+  
+  bool fwd = (speed > 0);
+
+  if (motor == 1) {
+    analogWrite(MOTOR1_PWM, pwm);
+    digitalWrite(MOTOR1_IN1, fwd ? HIGH : LOW);
+    digitalWrite(MOTOR1_IN2, fwd ? LOW : HIGH);
+  } else if (motor == 2) {
+    analogWrite(MOTOR2_PWM, pwm);
+    digitalWrite(MOTOR2_IN3, fwd ? HIGH : LOW);
+    digitalWrite(MOTOR2_IN4, fwd ? LOW : HIGH);
+  } else if (motor == 3) {
+    analogWrite(MOTOR3_PWM, pwm);
+    digitalWrite(MOTOR3_IN1, fwd ? HIGH : LOW);
+    digitalWrite(MOTOR3_IN2, fwd ? LOW : HIGH);
+  } else if (motor == 4) {
+    analogWrite(MOTOR4_PWM, pwm);
+    digitalWrite(MOTOR4_IN3, fwd ? HIGH : LOW);
+    digitalWrite(MOTOR4_IN4, fwd ? LOW : HIGH);
+  }
+}
+
+void stopAllMotors() {
+  analogWrite(5, 0); analogWrite(6, 0);
+  analogWrite(9, 0); analogWrite(10, 0);
+}
