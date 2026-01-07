@@ -33,7 +33,7 @@ CH4         Rotation (Yaw)     Pin 11
 # 📐 Kinematics & Logic
 The robot uses a vector addition matrix to translate 3-axis input ($X, Y, R$) into 4 individual wheel speeds.
 
-The Math
+# The Math
 M1 = Y + X + R
 M2 = Y - X - R
 M3 = Y - X + R
@@ -45,4 +45,7 @@ Speed Cap: Limited to 200/255 to prevent the L298N drivers from overheating and 
 Min-Kick Logic: Automatically boosts low PWM signals to a minimum threshold (45) to overcome motor gearbox friction.
 
 Deadzone: A software deadzone of 35 prevents "creeping" when the RC sticks are at rest.
+
+# 📜 License
+This project is open-source and available under the MIT License.
 
